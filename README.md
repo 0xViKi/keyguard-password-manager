@@ -20,7 +20,16 @@ To run:
 ```python3
 python3 manager.py
 ```
+#### Screenshots (Demo):
 
+<img width="850" height="450" src='https://github.com/0xViKi/keyguard-password-manager/blob/main/screenshots/screenshot1.PNG'></img>
+<img width="850" height="450" src='https://github.com/0xViKi/keyguard-password-manager/blob/main/screenshots/screenshot2.PNG'></img>
+<img width="850" height="450" src='https://github.com/0xViKi/keyguard-password-manager/blob/main/screenshots/screenshot3.PNG'></img>
+<img width="850" height="450" src='https://github.com/0xViKi/keyguard-password-manager/blob/main/screenshots/screenshot4.PNG'></img>
+<img width="850" height="450" src='https://github.com/0xViKi/keyguard-password-manager/blob/main/screenshots/screenshot5.PNG'></img>
+<img width="850" height="450" src='https://github.com/0xViKi/keyguard-password-manager/blob/main/screenshots/screenshot6.PNG'></img>
+<img width="850" height="450" src='https://github.com/0xViKi/keyguard-password-manager/blob/main/screenshots/screenshot7.PNG'></img>
+---
 #### TODO:
 
 - [ ] Cloud Backup
