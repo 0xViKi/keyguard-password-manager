@@ -9,7 +9,7 @@ Features:
 2. Encrypted
 3. Multi-User
 4. Lightweight and Fast
-5. User Friendly
+5. Intuitive UI
 ```
 Download Through Git:
 ```
