@@ -1,7 +1,7 @@
 <img align='left' width="300" height="300" src='https://github.com/0xViKi/keyguard-password-manager/blob/main/pm.png'></img>
 
 # KeyGuard Password Manager
-### Console based Password Manager written in Python 3
+### Console based(CLI) Password Manager written in Python 3
 ```
 Features:
 
