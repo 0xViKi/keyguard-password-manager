@@ -20,6 +20,11 @@ To run:
 ```python3
 python3 manager.py
 ```
+
+
+> **Note** **>> Source code and Releases have different Encryption Keys.**
+
+
 #### Screenshots (Demo):
 
 <img width="850" height="450" src='https://github.com/0xViKi/keyguard-password-manager/blob/main/screenshots/screenshot1.PNG'></img>
