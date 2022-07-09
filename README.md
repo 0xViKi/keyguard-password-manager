@@ -23,6 +23,7 @@ python3 manager-v2.0.py
 
 
 > **Note** **>> Source code and Releases have different Encryption Keys.**
+
 > **Note** **>> Version 1.0 uses Fernet Encryption. Version 2.0 uses AES(CBC-Mode) Encryption.**
 
 #### Screenshots (Demo):
