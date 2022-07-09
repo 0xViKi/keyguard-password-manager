@@ -18,7 +18,7 @@ git clone https://github.com/0xViKi/keyguard-password-manager.git
 
 To run:
 ```python3
-python3 manager.py
+python3 manager-v2.0.py
 ```
 
 
