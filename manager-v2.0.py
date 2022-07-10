@@ -2,7 +2,7 @@
 
 __author__ = "0xViKi"
 __license__ = "GPL"
-__version__ = "1.0"
+__version__ = "2.0"
 __maintainer__ = "0xViKi"
 __status__ = "Production"
 
