@@ -2,7 +2,7 @@
 
 __author__ = "0xViKi"
 __license__ = "GPL"
-__version__ = "2.0"
+__version__ = "1.0"
 __maintainer__ = "0xViKi"
 __status__ = "Production"
 
@@ -44,8 +44,9 @@ logo = '''+---------------------------------------------------------------------
 +-----------------------------------------------------------------------------------+'''
 
 dList = ['1', '2', '99', 'x']
-uList = ['1', '2', '3', '4', '5', 'x']
+mainList  = ['1', '2', '3', '4', '5', 'x']
 chupList = ['1', '2', '3', 'x']
+exList = ['1', '2', '3', '4', '99', 'x']
     
 # * MASTER TABLE SQL STATEMENTS
 
@@ -106,6 +107,7 @@ elif sys.platform == "win32":
     userDBFile = f'{databaseDir}/uname.kgdb'
 
      
+    
 def draw():
 
     # Fucntion to draw logo
@@ -133,7 +135,6 @@ def genrate_encryption_key():
     hexKey = Random.get_random_bytes(32)
     hexIV = Random.new().read(AES.block_size)
     
-
     return hexKey, hexIV
 
 
@@ -222,7 +223,6 @@ def backup_files():
 +{"-"*60}
 | 1. Copy VAULT from this device
 | 2. Move VAULT to this device
-|
 | 99. Main Menu
 |
 | x. Exit
@@ -231,11 +231,12 @@ def backup_files():
 
     while True:
         print(f"+{'-'*60}")
-        choice = input("Choose [ 1 / 2 / 99 / x ] >> ")
+        choice = input("| Choose [ 1 / 2 / 99 / x ] >> ")
         try:
             assert choice in dList         
         except AssertionError:
-            print("Invalid Choice")     
+            print(f"+{'-'*60}")
+            print("|  Invalid Choice")     
         else:
             break
 
@@ -247,9 +248,9 @@ def backup_files():
         shutil.copytree(databaseDir, f'{desktop}/{dirName}')
 
         print(f"+{'-'*60}")
-        print(f'VAULT is Copied to DESKTOP: "{desktop}"')
+        print(f'| VAULT is Copied to DESKTOP: "{desktop}"')
         print(f"+{'-'*60}")
-        print('COPY SUCCESSFUL.')
+        print('| COPY SUCCESSFUL.')
         print(f"+{'-'*60}")
 
     elif choice == '2':
@@ -260,16 +261,16 @@ def backup_files():
             shutil.copytree(f'{desktop}/{dirName}', f'{localAppData}/{dirName}')
             shutil.rmtree(f'{desktop}/{dirName}')
             print(f"+{'-'*60}")
-            print('MOVED SUCCESSFUL')
+            print('| MOVED SUCCESSFUL')
             print(f"+{'-'*60}")
-            input('Press Enter key to exit..')
+            input('| Press Enter key to exit..')
             sys.exit()
         
         else:
             print(f"+{'-'*60}")
-            print(f"VAULT NOT FOUND. Please Place VAULT in DESKTOP")
+            print(f"| VAULT NOT FOUND. Please Place VAULT in DESKTOP")
             print(f"+{'-'*60}")
-            print('OPERATION UNSUCESSFUL')
+            print('| OPERATION UNSUCESSFUL')
             print(f"+{'-'*60}")
 
             return None
@@ -357,7 +358,6 @@ def view_all_data(uname, key, iv):
         print(f"+{'-'*60}")
         uConn.close()
         encryption(userDBFile.replace('uname', uname), key, iv)
-        input("| Press Enter key to go back...")
 
         return None
 
@@ -402,10 +402,9 @@ def search_by_data(uname, key, iv):
     if len(data) == 0:
 
         print(f"+{'-'*60}")
-        print("| Data is unavailable because it is either empty or not saved.")
+        print("| Data is unavailable because it is empty.")
         print(f"+{'-'*60}")
         uConn.close()
-
         encryption(userDBFile.replace('uname', uname), key, iv)
 
         return None
@@ -431,7 +430,7 @@ def search_by_data(uname, key, iv):
     
     input("| Press Enter Key to continue...")     
 
-    return None    
+    return 0   
 
 
 def add_info(uname, key, iv):
@@ -506,15 +505,17 @@ def update_info(uname, key, iv):
     print(menuMsg)
     input("| Make a note of the ID for which you need to update or modify the information. Press Enter to continue...")
 
-    search_by_data(uname, key, iv)
-    
+    flag = search_by_data(uname, key, iv)
+    if flag == None:
+        return None
+   
     draw()
     menuMsg =  f'''+{'-'*60}
 | UPDATE {uname}'s DATA
 +{'-'*60}'''
 
     print(menuMsg)
-
+    
     while True:
         print(f"+{'-'*60}")
         try:
@@ -681,7 +682,7 @@ def existing_user():
 | 2. View All Data
 | 3. Search Data
 | 4. Update Information
-| 5. Main Menu
+| 99. Main Menu
 |
 | x. Exit
 +{"-"*60}'''
@@ -691,9 +692,9 @@ def existing_user():
 
         while True:
             print(f"+{'-'*60}")
-            choice = input("| Choose [ 1 / 2 / 3 / 5 / x ] >> ")
+            choice = input("| Choose [ 1 / 2 / 3 / 4 / 99 / x ] >> ")
             try:
-                assert choice in uList         
+                assert choice in exList         
             except AssertionError:
                 print(f"+{'-'*60}")
                 input("| Invalid Choice. Press Enter Key to try again...")     
@@ -712,6 +713,7 @@ def existing_user():
 
         elif choice == "3":
             search_by_data(uname, key,iv)
+            input("| Press Enter Key to continue...")     
         
         elif choice == "4":
             update_info(uname, key,iv)
@@ -863,7 +865,7 @@ def main():
             print(f"+{'-'*60}")
             choice = input("|  Choose [ 1 / 2 / 3 / 4 / 5 / x ] >> ")
             try:
-                assert choice in uList         
+                assert choice in mainList         
             except AssertionError:
                 print(f"+{'-'*60}")
                 input("| Invalid Choice. Press Enter key to try again...")     
