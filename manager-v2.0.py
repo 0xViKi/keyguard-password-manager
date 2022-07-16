@@ -19,8 +19,8 @@ from hashlib import md5
 import shutil
 
 # * Important Stuff
-masterKey = b'FX\x12\xe9W\x12d\xfc]\xf6\x86\x81\xba\xa9G\xe3\xd3\x99)\x9cC\xa4\xb4\xc3\x10\xe1\xcc-\x90\x94&\xa6'
-masterIV = b'\xe1\xa2u|q\\\xa6\x17p.\xb6\x92\xce\xc1\xfe\x92'
+masterKey = b'\x45\x56\x3a\x6e\x24\x42\x30\x6e\x43\x7d\x5e\x3e\x27\x40\x3c\x74\x3f\x6a\x46\x37\x5d\x62\x57\x50\x34\x7b\x43\x71\x60\x4e\x72\x41'
+masterIV = b'\x59\x3d\x66\x57\x64\x66\xa1\x5a\x7b\x32\x47\x26\x49\x23\x4e\x7c'
 
 # Recovery word list 
 
@@ -43,8 +43,9 @@ logo = '''+---------------------------------------------------------------------
 | Website:  https://0xViKi.github.io                                                |
 +-----------------------------------------------------------------------------------+'''
 
-dList = ['1', '2', 'x']
-uList  = ['1', '2', '3', '4', 'x']
+dList = ['1', '2', '99', 'x']
+uList = ['1', '2', '3', '4', '5', 'x']
+chupList = ['1', '2', '3', 'x']
     
 # * MASTER TABLE SQL STATEMENTS
 
@@ -67,12 +68,16 @@ insertUser2Master = "INSERT INTO master(username, password, recoverycode, key, i
 queryUsernameRecovcode = "select * from master where username = ? and recoverycode = ?;"
 updatePassword = "update master set password = ? where username = ? and recoverycode = ?;"
 fetchInfoFromMaster = "select * from master where username = ? and password = ?;"
+removeUser = "DELETE FROM master WHERE username = ? AND password = ?;"
 
 # * USER TABLE SQL STATEMENTS
 
 insertInfo2User = "INSERT INTO uname(website, mail, username, password) VALUES(?, ?, ?, ?);"
 searchWebsite = "select * from uname where website = ?;"
-# ---
+updateUsername = "update uname set username = ? where id = ?;"
+updateUserPassword = "update uname set password = ? where id = ?;"
+updateMail = "update uname set mail = ? where id = ?;"
+
 # * Check for the Platform
 
 if sys.platform == "linux" or sys.platform == "linux2":
@@ -86,14 +91,6 @@ if sys.platform == "linux" or sys.platform == "linux2":
     DBfile = f"{databaseDir}/password.kgdb"
     keyFile = f"{databaseDir}/EDKey.kgk"
     userDBFile = f'{databaseDir}/uname.kgdb'
-
-    if not os.path.isdir(databaseDir):
-        os.mkdir(databaseDir)
-        open(DBfile, 'w+')
-        conn = sqlite3.connect(DBfile)
-        conn.execute(masterDbSQL)
-        conn.commit()
-        conn.close()  
 
 elif sys.platform == "win32":
 
@@ -109,8 +106,6 @@ elif sys.platform == "win32":
     userDBFile = f'{databaseDir}/uname.kgdb'
 
      
-
-
 def draw():
 
     # Fucntion to draw logo
@@ -131,16 +126,26 @@ def random_recovery_word():
     return " ".join(words)
 
 
-def encryption(file, akey, iv):
+def genrate_encryption_key():
+    
+    # Generates AES Keys for Users and Unique key for Encrypting Files
+  
+    hexKey = Random.get_random_bytes(32)
+    hexIV = Random.new().read(AES.block_size)
+    
+
+    return hexKey, hexIV
+
+
+def encryption(file, key, iv):
 
     # AES Encryption Function
     with open(file, 'rb') as f:
         data = f.read()
         f.close()
 
-    cipher = AES.new(akey, AES.MODE_CBC, iv)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
     data = pad(data, AES.block_size)    
-
     cipherText = cipher.encrypt(data)
     
     with open(file, 'wb') as f:
@@ -148,16 +153,15 @@ def encryption(file, akey, iv):
         f.close()
 
 
-def decryption(file, akey, iv):
+def decryption(file, key, iv):
     
     # AES CBC Decryption Function, 
     with open(file, 'rb') as f:
         data = f.read()
         f.close()
     
-    cipher = AES.new(akey, AES.MODE_CBC, iv)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
     plainText = cipher.decrypt(data) 
-
     plainText = unpad(plainText, AES.block_size)
     
     with open(file, 'wb') as f:
@@ -165,14 +169,116 @@ def decryption(file, akey, iv):
         f.close()
 
 
-def genrate_encryption_key():
+def remove_user():
+
+    draw()
+    print(f"+{'-'*60}")
+    print("| Welcome to Remove User")
+    print(f"+{'-'*60}")
+ 
     
-    # Generates AES Keys for Users and Unique key for Encrypting Files
-  
-    key = Random.get_random_bytes(32)
-    iv = Random.new().read(AES.block_size)
-  
-    return key, iv
+    uname = input("| UserName >> ")
+    passwd = input("| Password >> ")
+    passwd = md5(passwd.encode()).hexdigest()
+    
+    # Decrypts File
+    
+    decryption(DBfile, masterKey, masterIV)
+
+    conn = sqlite3.connect(DBfile)   
+    cur = conn.cursor()
+    cur.execute(fetchInfoFromMaster, (uname, passwd))
+    data = cur.fetchone()
+    
+    if data == None:
+        print(f"+{'-'*60}") 
+        print("| INVALID CREDENTIALS.")
+        print(f"+{'-'*60}") 
+        encryption(DBfile, masterKey, masterIV)
+        
+        return None
+
+    cur.execute(removeUser,  (uname, passwd))
+    conn.commit()
+    conn.close()
+
+    encryption(DBfile, masterKey, masterIV)
+
+    if os.path.isfile(userDBFile.replace('uname', uname)):
+        os.remove(userDBFile.replace('uname', uname))
+
+    print(f"+{'-'*60}")
+    print("| USER REMOVED SUCCESSFUL")
+    print(f"+{'-'*60}")
+
+
+def backup_files():
+
+    # Copying File and Moving file from Devices
+
+    draw()
+    menuMsg = f'''+{"-"*60}
+| BACKUP/MOVE VAULT")
++{"-"*60}
+| 1. Copy VAULT from this device
+| 2. Move VAULT to this device
+|
+| 99. Main Menu
+|
+| x. Exit
++{"-"*60}'''
+    print(menuMsg)
+
+    while True:
+        print(f"+{'-'*60}")
+        choice = input("Choose [ 1 / 2 / 99 / x ] >> ")
+        try:
+            assert choice in dList         
+        except AssertionError:
+            print("Invalid Choice")     
+        else:
+            break
+
+    if choice == '1':
+        
+        if os.path.isdir(f'{desktop}/{dirName}'):
+            shutil.rmtree(f'{desktop}/{dirName}')
+        
+        shutil.copytree(databaseDir, f'{desktop}/{dirName}')
+
+        print(f"+{'-'*60}")
+        print(f'VAULT is Copied to DESKTOP: "{desktop}"')
+        print(f"+{'-'*60}")
+        print('COPY SUCCESSFUL.')
+        print(f"+{'-'*60}")
+
+    elif choice == '2':
+
+        if os.path.isdir(f'{desktop}/{dirName}'):
+
+            shutil.rmtree(f'{localAppData}/{dirName}')
+            shutil.copytree(f'{desktop}/{dirName}', f'{localAppData}/{dirName}')
+            shutil.rmtree(f'{desktop}/{dirName}')
+            print(f"+{'-'*60}")
+            print('MOVED SUCCESSFUL')
+            print(f"+{'-'*60}")
+            input('Press Enter key to exit..')
+            sys.exit()
+        
+        else:
+            print(f"+{'-'*60}")
+            print(f"VAULT NOT FOUND. Please Place VAULT in DESKTOP")
+            print(f"+{'-'*60}")
+            print('OPERATION UNSUCESSFUL')
+            print(f"+{'-'*60}")
+
+            return None
+
+    elif choice == '99':
+        return None
+    
+    else:
+        sys.exit()
 
 
 def forgot_password():
@@ -180,13 +286,13 @@ def forgot_password():
     # Function to change Password
 
     draw()
-    print("-"*60)
+    print(f"+{'-'*60}")
     print("| FORGOT PASSWORD")
-    print("-"*60)
+    print(f"+{'-'*60}")
     
     # Inputs from User
-    username = input("Username: ")
-    recovCode = input("Recovery-Code: ").strip()
+    username = input("| Username: ")
+    recovCode = input("| Recovery-Code: ").strip()
     
     # Decrypting Files
     decryption(DBfile, masterKey, masterIV)
@@ -200,9 +306,9 @@ def forgot_password():
     # Checking for correct username and recovery code
     if len(data) == 0:
         
-        print('-'*60)
-        print(f'USERNAME OR RECOVERY-CODE SUBMITTED IS INVALID.')
-        print('-'*60)
+        print(f"+{'-'*60}")
+        print(f'| USERNAME OR RECOVERY-CODE SUBMITTED IS INVALID.')
+        print(f"+{'-'*60}")
         conn.close()
        
         encryption(DBfile, masterKey, masterIV)
@@ -211,158 +317,155 @@ def forgot_password():
     # TODO: Planning for getpass() Library, to get input from user 
     # If correct takes new password from user 
 
-    print('-'*60)
-    newPassword = input("New Password: ")
+    print(f"+{'-'*60}")
+    newPassword = input("| New Password: ")
     newPassword = md5(newPassword.encode()).hexdigest()
     cur.execute(updatePassword, (newPassword, username, recovCode))
-    cur.execute(fetchInfoFromMaster, (username, newPassword))
     conn.commit()
-    data = cur.fetchall()
     conn.close()    
     
     # Encrypting Files
     encryption(DBfile, masterKey, masterIV)
 
-    print('-'*60)
-    print('PASSWORD CHANGED SUCCESSFUL')
-    print('-'*60)   
+    print(f"+{'-'*60}")
+    print('| PASSWORD CHANGED SUCCESSFUL')
+    print(f"+{'-'*60}")   
 
     return None
 
 
-def view_data(uname, ukey, iv):
+def view_all_data(uname, key, iv):
 
     draw()
-    print('-'*60)
-    print(f"| VIEW {uname}'s DATA")
-    print('-'*60)
-    print('1. View All Data \n2. View Single Data\n\nx. Exit')
-    
-    # Input Validation
-
-    while True:
-        print('-'*60)
-        choice = input("Choose [ 1 / 2 / x ] >> ")
-        try:
-            assert choice in dList         
-        except AssertionError:
-            print("Invalid Choice")     
-        else:
-            break
-
+    print(f"+{'-'*60}")
+    print(f"| VIEW {uname}'s ALL DATA")
+    print(f"+{'-'*60}")
+   
     # Conditional Execution
-
-    if choice == '1':
-        
-        decryption(userDBFile.replace('uname', uname), ukey, iv)
-        
-        uConn = sqlite3.connect(userDBFile.replace('uname', uname))
-        uCur = uConn.cursor()
-        uCur.execute(f'''select * from {uname};''')
-        data = uCur.fetchall()
-
-        if len(data) == 0:
-
-            print('-'*60)
-            print("Data is unavailable because it is either empty or not saved.")
-            print('-'*60)
-            uConn.close()
-
-            encryption(userDBFile.replace('uname', uname), ukey, iv)
-
-            return None
-
-        uConn.close()
-        
-        encryption(userDBFile.replace('uname', uname), ukey, iv)
-        
-        os.system(clearCMD)
-
-        print('-'*60)
-        print(f"| {uname}'s Stored Data:")
-        print('-'*60)
-        print()
-        
-        print(tabulate(data, headers=['Website', 'Mail-ID', 'Username', 'Password'], tablefmt='grid'))
-
-    elif choice == '2':
-
-        print('-'*60)
-        websiteName = input("Search by website name: ").lower()
-
-        decryption(userDBFile.replace('uname', uname), ukey, iv)
-
-        uConn = sqlite3.connect(userDBFile.replace('uname', uname))
-        uCur = uConn.cursor()
-        uCur.execute(searchWebsite.replace("uname", uname), [websiteName])
-        data = uCur.fetchall()
-
-        if len(data) == 0:
     
-            print('-'*60)
-            print("Data is unavailable because it is either empty or not saved.")
-            print('-'*60)
-            uConn.close()
-
-            encryption(userDBFile.replace('uname', uname), ukey, iv)
-
-            return None
-        
-        uConn.close()
-        
-        encryption(userDBFile.replace('uname', uname), ukey, iv)
-        
-        os.system(clearCMD)
-        
-        print('-'*60)
-        print(f"| {uname}'s {websiteName} Data:")       
-        print('-'*60)
-        print()
-        print(tabulate(data, headers=['Website', 'Mail-ID', 'Username', 'Password'], tablefmt='grid'))
+    decryption(userDBFile.replace('uname', uname), key, iv)
     
-    else:
+    uConn = sqlite3.connect(userDBFile.replace('uname', uname))
+    uCur = uConn.cursor()
+    uCur.execute(f"select * from {uname};")
+    data = uCur.fetchall()
+
+    if not data:
+
+        print(f"+{'-'*60}")
+        print("| Data is unavailable because it is empty.")
+        print(f"+{'-'*60}")
+        uConn.close()
+        encryption(userDBFile.replace('uname', uname), key, iv)
+        input("| Press Enter key to go back...")
+
         return None
 
+    uConn.close()
+    
+    encryption(userDBFile.replace('uname', uname), key, iv)
+    
+    os.system(clearCMD)
+
+    print(f"+{'-'*60}")
+    print(f"| {uname}'s Stored Data:")
+    print(f"+{'-'*60}")
     print()
-    print('-'*60)
-    print(f"VIEWED {uname}'s DATA SUCCESSFUL")
-    print('-'*60)
+    
+    print(tabulate(data, headers=['ID', 'Website', 'Mail-ID', 'Username', 'Password'], tablefmt='grid'))
+
+    print()
+    print(f"+{'-'*60}")
+    print(f"| VIEWED {uname}'s DATA SUCCESSFUL")
+    print(f"+{'-'*60}")
 
     return None    
 
 
-def add_info(uname, ukey, iv):
+def search_by_data(uname, key, iv):
+
+    draw()
+    menuMsg =  f'''+{'-'*60}
+| SEARCH {uname}'s DATA
++{'-'*60}'''
+    print(menuMsg)
+
+    websiteName = input("| Search by Website: ").lower()
+
+    decryption(userDBFile.replace('uname', uname), key, iv)
+
+    uConn = sqlite3.connect(userDBFile.replace('uname', uname))
+    uCur = uConn.cursor()
+    uCur.execute(searchWebsite.replace("uname", uname), [websiteName])
+    data = uCur.fetchall()
+
+    if len(data) == 0:
+
+        print(f"+{'-'*60}")
+        print("| Data is unavailable because it is either empty or not saved.")
+        print(f"+{'-'*60}")
+        uConn.close()
+
+        encryption(userDBFile.replace('uname', uname), key, iv)
+
+        return None
+    
+    uConn.close()
+    
+    encryption(userDBFile.replace('uname', uname), key, iv)
+    
+    os.system(clearCMD)
+    
+    msg = f'''+{'-'*60}
+| {uname}'s Searched Data:       
++{'-'*60}'''
+
+    print(msg)
+
+    print(tabulate(data, headers=['ID', 'Website', 'Mail-ID', 'Username', 'Password'], tablefmt='grid'))
+
+    print()
+    print(f"+{'-'*60}")
+    print(f"| {uname}'s DATA SUCCESSFUL")
+    print(f"+{'-'*60}")
+    
+    input("| Press Enter Key to continue...")     
+
+    return None    
+
+
+def add_info(uname, key, iv):
     
     infoData = []
     
     draw()
-    print('-'*60)
+    print(f"+{'-'*60}")
     print(f"| {uname} >> ADD DATA")
 
     # Input validation limits user for max of 10
 
     while True:
-        print('-'*60)
+        print(f"+{'-'*60}")
         try:
-            nData = int(input('Number of Info to be stored [1-10]: '))
+            nData = int(input('| Number of Info to be stored [1-10]: '))
             assert 0 < nData < 10
         except ValueError:
-            print("Not an integer! Please enter an integer.")
+            print("| Not an integer! Please enter an integer.")
         except AssertionError:
-            print("Please enter an integer between 1 and 10")
+            print("| Please enter an integer between 1 and 10")
         else:
             break
     
     # Stores the data in List variable called infoData
      
     for _ in range(nData):     
-        print('-'*60)
-        websiteName = input('Website Name: ').lower().strip()
-        mailID = input('Mail ID: ')
-        websiteUsername = input('Username: ')
-        websitePassword = input('Password: ').strip()
+        print(f"+{'-'*60}")
+        websiteName = input('| Website Name: ').lower().strip()
+        mailID = input('| Mail ID: ')
+        websiteUsername = input('| Username: ')
+        websitePassword = input('| Password: ').strip()
         if (not websiteName or not websitePassword):
-            print('-'*60)
+            print(f"+{'-'*60}")
             input("NOTE: Due to an empty mandatory field, the information you provided above was not stored.")
         else:
             infoData.append((websiteName, mailID, websiteUsername, websitePassword))
@@ -370,9 +473,9 @@ def add_info(uname, ukey, iv):
     # If information provided is 0, exits this function
     # If not continues to execute the below code
     
-    if len(infoData) != 0:
+    if infoData:
 
-        decryption(userDBFile.replace('uname', uname), ukey, iv)
+        decryption(userDBFile.replace('uname', uname), key, iv)
 
         uConn = sqlite3.connect(userDBFile.replace('uname', uname))
         uCur = uConn.cursor()
@@ -384,25 +487,156 @@ def add_info(uname, ukey, iv):
         uConn.commit()
         uConn.close()
         
-        encryption(userDBFile.replace('uname', uname), ukey, iv)
+        encryption(userDBFile.replace('uname', uname), key, iv)
     
 
-    print('-'*60)
-    print(f'DATA ADDED SUCCESSFUL')
-    print('-'*60)
+    print(f"+{'-'*60}")
+    print(f'| DATA ADDED SUCCESSFUL')
+    print(f"+{'-'*60}")
     
     return None
+
+
+def update_info(uname, key, iv):
+
+    draw()
+    menuMsg =  f'''+{'-'*60}
+| UPDATE {uname}'s DATA
++{'-'*60}'''
+    print(menuMsg)
+    input("| Make a note of the ID for which you need to update or modify the information. Press Enter to continue...")
+
+    search_by_data(uname, key, iv)
+    
+    draw()
+    menuMsg =  f'''+{'-'*60}
+| UPDATE {uname}'s DATA
++{'-'*60}'''
+
+    print(menuMsg)
+
+    while True:
+        print(f"+{'-'*60}")
+        try:
+            uid = int(input("| Enter ID >> "))
+        except ValueError:
+            print("| Invalid ID")
+        else:
+            break
+
+    optionMsg = f'''+{'-'*60}
+| 1. Update Mail 
+| 2. Update Password
+| 3. Update Username
+| 
+| x. Back
++{'-'*60}'''
+
+    print(optionMsg)
+
+    while True:
+        print(f"+{'-'*60}")
+        choice = input("|  Choose [ 1 / 2 / 3 / x ] >> ")
+        try:
+            assert choice in chupList         
+        except AssertionError:
+            print(f"+{'-'*60}")
+            input("| Invalid Choice. Press Enter key to try again...")     
+        else:
+            break
+
+   
+
+    if choice == '1':
+
+        print(f"+{'-'*60}")
+        nmail = input("| Enter New Mail >> ")
+        
+        decryption(userDBFile.replace('uname', uname), key, iv)
+
+        uConn = sqlite3.connect(userDBFile.replace('uname', uname))
+        uCur = uConn.cursor()
+        try:
+            uCur.execute(updateMail.replace('uname', uname), (nmail, uid))
+            uConn.commit()
+            uConn.close()
+        except:
+            uConn.close()
+            encryption(userDBFile.replace('uname', uname), key, iv)
+            print(f"+{'-'*60}")
+            input("Unable to Change Mail ID due to invalid/incorrect data. Press Enter to Exit.")
+            sys.exit()
+        
+        
+        encryption(userDBFile.replace('uname', uname), key, iv)
+        print(f"+{'-'*60}")
+        print(f'| MAIL ID UPDATE SUCCESSFUL')
+        print(f"+{'-'*60}")
+    
+    elif choice == '2':
+
+        print(f"+{'-'*60}")
+        npassword = input("| Enter New Password >> ")
+        
+        decryption(userDBFile.replace('uname', uname), key, iv)
+
+        uConn = sqlite3.connect(userDBFile.replace('uname', uname))
+        uCur = uConn.cursor()
+        try:
+            uCur.execute(updateUserPassword.replace('uname', uname), (npassword, uid))
+            uConn.commit()
+            uConn.close()
+        except:
+            uConn.close()
+            encryption(userDBFile.replace('uname', uname), key, iv)
+            print(f"+{'-'*60}")
+            input("Unable to Change Password due to invalid/incorrect data. Press Enter to Exit.")
+            sys.exit()
+        
+        encryption(userDBFile.replace('uname', uname), key, iv)
+        print(f"+{'-'*60}")
+        print(f'| PASSWORD UPDATE SUCCESSFUL')
+        print(f"+{'-'*60}")
+    
+    elif choice == '3':
+
+        print(f"+{'-'*60}")
+        nuname = input("| Enter New Username >> ")
+        
+        decryption(userDBFile.replace('uname', uname), key, iv)
+
+        uConn = sqlite3.connect(userDBFile.replace('uname', uname))
+        uCur = uConn.cursor()
+        try:
+            uCur.execute(updateUsername.replace('uname', uname), (nuname, uid))
+            uConn.commit()
+            uConn.close()
+        except:
+            uConn.close()
+            encryption(userDBFile.replace('uname', uname), key, iv)
+            print(f"+{'-'*60}")
+            input("Unable to Change Username due to invalid/incorrect data. Press Enter to Exit.")
+            sys.exit()
+
+        encryption(userDBFile.replace('uname', uname), key, iv)
+        print(f"+{'-'*60}")
+        print(f'| USERNAME UPDATE SUCCESSFUL')
+        print(f"+{'-'*60}")
+    
+    else:
+        return None
 
 
 def existing_user():
 
     draw()
-    print("-"*60) 
+    print(f"+{'-'*60}")
     print("| Welcome Existing User")
-    print("-"*60) 
+    print(f"+{'-'*60}")
+ 
     
-    uname = input("UserName >> ")
-    passwd = input("Password >> ")
+    uname = input("| UserName >> ")
+    passwd = input("| Password >> ")
     passwd = md5(passwd.encode()).hexdigest()
     
     # Decrypts File
@@ -416,54 +650,77 @@ def existing_user():
     cur.execute(fetchInfoFromMaster, (uname, passwd))
     data = cur.fetchone()
     conn.close() 
+    
+    if data == None:
+        print(f"+{'-'*60}") 
+        print("| INVALID CREDENTIALS.")
+        print(f"+{'-'*60}") 
+        encryption(DBfile, masterKey, masterIV)
+        
+        return None
 
     # Encrypts File
     
     encryption(DBfile, masterKey, masterIV)
 
     # If length of data is 0 then wrong Credentials comes out of this function
-    
-    if data == None:
-        print("-"*60) 
-        print("INVALID CREDENTIALS.")
-        print("-"*60) 
-        
-        return None
-
     # Fetches Unique key for User database and stores in variable
+
     key = data[4]
     iv = data[5]
     
     # if Correct credential, executes below code
-
-    draw()
-    print("-"*60) 
-    print(f"| Welcome {uname}")
-    print("-"*60) 
-    print("1. Add Data \n2. View Data \n\nx. Exit")
-
-    # Input Validation
+    # TODO: Change/Update information
 
     while True:
-        print('-'*60)
-        choice = input("Choose [ 1 / 2 / x ] >> ")
-        try:
-            assert choice in dList         
-        except AssertionError:
-            print("Invalid Choice")     
-        else:
-            break
-    
-    # Conditional execution
-    
-    if choice == "1":
-        add_info(uname, key, iv)
-    elif choice == "2":
-        view_data(uname, key,iv)
-    else:
-        return None
+        draw()
+        menuMsg = f'''+{"-"*60}
+| Welcome {uname}
++{"-"*60}
+| 1. Add Data
+| 2. View All Data
+| 3. Search Data
+| 4. Update Information
+| 5. Main Menu
+|
+| x. Exit
++{"-"*60}'''
+        print(menuMsg)
 
-    return None
+        # Input Validation
+
+        while True:
+            print(f"+{'-'*60}")
+            choice = input("| Choose [ 1 / 2 / 3 / 5 / x ] >> ")
+            try:
+                assert choice in uList         
+            except AssertionError:
+                print(f"+{'-'*60}")
+                input("| Invalid Choice. Press Enter Key to try again...")     
+            else:
+                break
+        
+        # Conditional execution
+        
+        if choice == "1":
+            add_info(uname, key, iv)
+            input("| Press Enter Key to continue...")     
+
+        elif choice == "2":
+            view_all_data(uname, key,iv)
+            input("| Press Enter Key to continue...")     
+
+        elif choice == "3":
+            search_by_data(uname, key,iv)
+        
+        elif choice == "4":
+            update_info(uname, key,iv)
+            input("| Press Enter Key to continue...")  
+
+        elif choice == "99":
+            return None
+        elif choice == 'x':
+            sys.exit()
 
 
 def new_user():
@@ -474,25 +731,25 @@ def new_user():
 
     # Takes Input From User
 
-    print("-"*60)
+    print(f"+{'-'*60}")
     print("| Welcome New User")
     while True: 
-        print("-"*60)  
-        uname = input("Username >> ")
+        print(f"+{'-'*60}")  
+        uname = input("| Username >> ")
         if uname.isalpha():
             break
         else:
-            print("-"*60)  
-            print("Username invalid. Usernames may only contain letters;\nnumbers and symbols are not permitted. To try once again, press the Enter key")
+            print(f"+{'-'*60}")  
+            print("| Username invalid. Usernames may only contain letters;\n| numbers and symbols are not permitted. try again.")
     
     # Password is Hashed and Key is generated for Encryption
 
-    passwd = input("Password >> ")
+    passwd = input("| Password >> ")
     passwd = md5(passwd.encode()).hexdigest()
     recovCode = random_recovery_word()
     key, iv = genrate_encryption_key()
     key = key   
-    iv = iv   
+    iv = iv
     
     # Decrypting Files
 
@@ -517,9 +774,9 @@ def new_user():
     # On Invalid Information Encrypts File and Exits out of script
 
     except Error:
-        print('-'*60)
-        print("NOTE: Please try again. User Already Exists.")
-        print('-'*60)
+        print(f"+{'-'*60}")
+        print("| NOTE: Please try again. User Already Exists.")
+        print(f"+{'-'*60}")
 
         encryption(DBfile, masterKey, masterIV)
         
@@ -534,92 +791,34 @@ def new_user():
     # Writes Username and Recover Code to File
 
     fileMsg = f'''{logo}
-{'-'*80}
++{'-'*80}
 | Username And Recovery Code
-{'-'*80}
++{'-'*80}
 | NOTE: KEEP THIS FILE SAFE
-{'-'*80}
++{'-'*80}
 | Username: {uname}
 | Recovery Code: {recovCode}
-{'-'*80}'''
++{'-'*80}'''
 
     with open(f'{desktop}/{uname}.txt', 'w+') as f:
         f.write(fileMsg)
         f.close()
 
     # Verbose Information  
+    noteMsg = f'''+{'-'*60}
+| Recovery Code: {recovCode}
++{'-'*60}
+| NEW USER: "{uname}" CREATED SUCCESSFUL.
++{'-'*60}
+| Note: A File has been created which has Username and Recovery Code.
+|       In case if you forget your master password, a recovery-code and username 
+|       will assist you in retrieve it. 
++{'-'*60}
+| File Location: {desktop}/{uname}.txt
++{'-'*60}'''
 
-    print('-'*60)
-    print(f"Recovery Code: {recovCode}")
-    print('-'*60)
-    print(f'NEW USER: "{uname}" CREATED SUCCESSFUL')   
-    print('-'*60)     
-    print("Note: A File has been created which has Username and Recovery Code .\n     In case if you forget your master password, a recovery-code and\n     username will assist you in retrieve it. ")
-    print('-'*60)
-    print(f"File Location: {desktop}/{uname}.txt")
-    print('-'*60)
-
-    return None
-
-
-def backup_files():
-
-    # Copying File and Moving file from Devices
-
-    draw()
-    print("-"*60)
-    print("| BACKUP/MOVE VAULT")
-    print("-"*60)
-    print("1. Copy VAULT from this device \n2. Move VAULT to this device\n\nx. Exit ")
-
-    while True:
-        print('-'*60)
-        choice = input("Choose [ 1 / 2 / x ] >> ")
-        try:
-            assert choice in dList         
-        except AssertionError:
-            print("Invalid Choice")     
-        else:
-            break
-
-    if choice == '1':
-        
-        if os.path.isdir(f'{desktop}/{dirName}'):
-            shutil.rmtree(f'{desktop}/{dirName}')
-        
-        shutil.copytree(databaseDir, f'{desktop}/{dirName}')
-
-        print('-'*60)
-        print(f'VAULT is Copied to DESKTOP: "{desktop}"')
-        print('-'*60)
-        print('COPY SUCCESSFUL.')
-        print('-'*60)
-
-    elif choice == '2':
-
-        if os.path.isdir(f'{desktop}/{dirName}'):
-
-            shutil.rmtree(f'{localAppData}/{dirName}')
-            shutil.copytree(f'{desktop}/{dirName}', f'{localAppData}/{dirName}')
-            shutil.rmtree(f'{desktop}/{dirName}')
-            print('-'*60)
-            print('MOVED SUCCESSFUL')
-            print('-'*60)
-            input('Press Enter key to exit..')
-            sys.exit()
-        
-        else:
-            print('-'*60)
-            print(f"VAULT NOT FOUND. Please Place VAULT in DESKTOP")
-            print('-'*60)
-            print('OPERATION UNSUCESSFUL')
-            print('-'*60)
-
-            return None
-
-    else:
-        return None
-
+    print(noteMsg)
+    
     return None
 
 
@@ -646,42 +845,57 @@ def main():
 
         draw()
 
-        print('-'*60)
-        print(f"| Welcome {os.getlogin()}")
-        print('-'*60)
-        print(f"1. New User \n2. Existing User \n3. Forgot Password \n4. Backup/Move \n\nx. Exit")
-        
+        menuMsg = f'''+{'-'*60}
+| Welcome {os.getlogin()}
++{'-'*60}
+| 1. New User
+| 2. Existing User 
+| 3. Forgot Password
+| 4. Remove User
+| 5. Backup/Move
+|
+| x. Exit
++{'-'*60}'''
+
+        print(menuMsg)
+
         while True:
-            print('-'*60)
-            choice = input("Choose [ 1 / 2 / 3 / 4 / x ] >> ")
+            print(f"+{'-'*60}")
+            choice = input("|  Choose [ 1 / 2 / 3 / 4 / 5 / x ] >> ")
             try:
                 assert choice in uList         
             except AssertionError:
-                print("Invalid Choice")     
+                print(f"+{'-'*60}")
+                input("| Invalid Choice. Press Enter key to try again...")     
             else:
                 break
 
         
         if choice == '1':
             new_user()
-            print('-'*60)
-            input('Press Enter key to continue..')
+            print(f"+{'-'*60}")
+            input('| Press Enter key to continue..')
 
         elif choice == '2':
             existing_user()
-            print('-'*60)
-            input('Press Enter key to continue..')
+            print(f"+{'-'*60}")
+            input('| Press Enter key to continue..')
         
         elif choice == '3':
             forgot_password()
-            print('-'*60)
-            input('Press Enter key to continue..')
+            print(f"+{'-'*60}")
+            input('| Press Enter key to continue..')
         
         elif choice == '4':
-            backup_files()
-            print('-'*60)
-            input('Press Enter key to continue..')
+            remove_user()
+            print(f"+{'-'*60}")
+            input('| Press Enter key to continue..')
 
+        elif choice == '5':
+            backup_files()
+            print(f"+{'-'*60}")
+            input('| Press Enter key to continue..')
+        
         else:
             break    
             
