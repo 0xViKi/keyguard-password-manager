@@ -2,7 +2,7 @@
 
 __author__ = "0xViKi"
 __license__ = "GPL"
-__version__ = "1.0"
+__version__ = "2.0"
 __maintainer__ = "0xViKi"
 __status__ = "Production"
 
@@ -45,7 +45,6 @@ logo = '''+---------------------------------------------------------------------
 
 dList = ['1', '2', '99', 'x']
 mainList  = ['1', '2', '3', '4', '5', 'x']
-chupList = ['1', '2', '3', 'x']
 exList = ['1', '2', '3', '4', '99', 'x']
     
 # * MASTER TABLE SQL STATEMENTS
@@ -60,10 +59,10 @@ masterDbSQL = '''CREATE TABLE IF NOT EXISTS master(
 
 userDbSQL = '''CREATE TABLE IF NOT EXISTS uname(
                 id          INTEGER     PRIMARY KEY AUTOINCREMENT,
-                website     text            NOT NULL,
-                mail        VARCHAR(80)             ,
-                username    VARCHAR(20)             ,
-                password    VARCHAR(30)    NOT NULL);'''
+                website     TEXT            NOT NULL,
+                mail        VARCHAR(80)     NOT NULL,
+                password    VARCHAR(30)     NOT NULL,
+                optdata     TEXT                    );'''
 
 insertUser2Master = "INSERT INTO master(username, password, recoverycode, key, iv) VALUES(?, ?, ?, ?, ?);"
 queryUsernameRecovcode = "select * from master where username = ? and recoverycode = ?;"
@@ -73,9 +72,8 @@ removeUser = "DELETE FROM master WHERE username = ? AND password = ?;"
 
 # * USER TABLE SQL STATEMENTS
 
-insertInfo2User = "INSERT INTO uname(website, mail, username, password) VALUES(?, ?, ?, ?);"
-searchWebsite = "select * from uname where website = ?;"
-updateUsername = "update uname set username = ? where id = ?;"
+insertInfo2User = "INSERT INTO uname(website, mail, password, optdata) VALUES(?, ?, ?, ?);"
+searchWebsite = f"select * from uname where website LIKE '%string%';"
 updateUserPassword = "update uname set password = ? where id = ?;"
 updateMail = "update uname set mail = ? where id = ?;"
 
@@ -178,8 +176,8 @@ def remove_user():
     print(f"+{'-'*60}")
  
     
-    uname = input("| UserName >> ")
-    passwd = input("| Password >> ")
+    uname = input("| UserName: ")
+    passwd = input("| Password: ")
     passwd = md5(passwd.encode()).hexdigest()
     
     # Decrypts File
@@ -263,8 +261,6 @@ def backup_files():
             print(f"+{'-'*60}")
             print('| MOVED SUCCESSFUL')
             print(f"+{'-'*60}")
-            input('| Press Enter key to exit..')
-            sys.exit()
         
         else:
             print(f"+{'-'*60}")
@@ -372,7 +368,7 @@ def view_all_data(uname, key, iv):
     print(f"+{'-'*60}")
     print()
     
-    print(tabulate(data, headers=['ID', 'Website', 'Mail-ID', 'Username', 'Password'], tablefmt='grid'))
+    print(tabulate(data, headers=['ID', 'Website', 'Mail-ID/Username', 'Password', 'Data'], tablefmt='grid'))
 
     print()
     print(f"+{'-'*60}")
@@ -391,21 +387,23 @@ def search_by_data(uname, key, iv):
     print(menuMsg)
 
     websiteName = input("| Search by Website: ").lower()
+    searchSql = searchWebsite.replace('uname', uname).replace('string', websiteName)
 
     decryption(userDBFile.replace('uname', uname), key, iv)
 
     uConn = sqlite3.connect(userDBFile.replace('uname', uname))
     uCur = uConn.cursor()
-    uCur.execute(searchWebsite.replace("uname", uname), [websiteName])
+    uCur.execute(searchSql)
     data = uCur.fetchall()
 
     if len(data) == 0:
 
+        uConn.close()
+        encryption(userDBFile.replace('uname', uname), key, iv)
         print(f"+{'-'*60}")
         print("| Data is unavailable because it is empty.")
         print(f"+{'-'*60}")
-        uConn.close()
-        encryption(userDBFile.replace('uname', uname), key, iv)
+        input("| Press Enter Key to continue...")     
 
         return None
     
@@ -421,7 +419,7 @@ def search_by_data(uname, key, iv):
 
     print(msg)
 
-    print(tabulate(data, headers=['ID', 'Website', 'Mail-ID', 'Username', 'Password'], tablefmt='grid'))
+    print(tabulate(data, headers=['ID', 'Website', 'Mail-ID/Username', 'Password', 'Data'], tablefmt='grid'))
 
     print()
     print(f"+{'-'*60}")
@@ -446,28 +444,34 @@ def add_info(uname, key, iv):
     while True:
         print(f"+{'-'*60}")
         try:
-            nData = int(input('| Number of Info to be stored [1-10]: '))
-            assert 0 < nData < 10
+            dataLen = int(input('| Number of Info to be stored [1-10]: '))
+            assert 0 < dataLen < 11
         except ValueError:
             print("| Not an integer! Please enter an integer.")
         except AssertionError:
             print("| Please enter an integer between 1 and 10")
         else:
             break
-    
+
     # Stores the data in List variable called infoData
      
-    for _ in range(nData):     
+    for _ in range(dataLen):     
+        os.system(clearCMD)
         print(f"+{'-'*60}")
-        websiteName = input('| Website Name: ').lower().strip()
-        mailID = input('| Mail ID: ')
-        websiteUsername = input('| Username: ')
-        websitePassword = input('| Password: ').strip()
-        if (not websiteName or not websitePassword):
+        print("| New Information")
+        print(f"+{'-'*60}")
+        websiteName = input('| Website Name: ').lower()
+        print("+-")
+        mailID = input('| Mail-ID/Username: ')
+        print("+-")
+        websitePassword = input('| Password: ')
+        print("+-")
+        optionalData = input('| Optional Data: ')
+        if (not websiteName or not websitePassword or not mailID):
             print(f"+{'-'*60}")
-            input("NOTE: Due to an empty mandatory field, the information you provided above was not stored.")
+            print("| NOTE: Due to an empty mandatory field, the information you provided above was not stored.")
         else:
-            infoData.append((websiteName, mailID, websiteUsername, websitePassword))
+            infoData.append((websiteName, mailID, websitePassword, optionalData))
     
     # If information provided is 0, exits this function
     # If not continues to execute the below code
@@ -488,10 +492,9 @@ def add_info(uname, key, iv):
         
         encryption(userDBFile.replace('uname', uname), key, iv)
     
-
-    print(f"+{'-'*60}")
-    print(f'| DATA ADDED SUCCESSFUL')
-    print(f"+{'-'*60}")
+        print(f"+{'-'*60}")
+        print(f'| DATA ADDED SUCCESSFUL')
+        print(f"+{'-'*60}")
     
     return None
 
@@ -526,9 +529,8 @@ def update_info(uname, key, iv):
             break
 
     optionMsg = f'''+{'-'*60}
-| 1. Update Mail 
+| 1. Update Mail-ID/Username
 | 2. Update Password
-| 3. Update Username
 | 
 | x. Back
 +{'-'*60}'''
@@ -537,9 +539,9 @@ def update_info(uname, key, iv):
 
     while True:
         print(f"+{'-'*60}")
-        choice = input("|  Choose [ 1 / 2 / 3 / x ] >> ")
+        choice = input("|  Choose [ 1 / 2 / x ] >> ")
         try:
-            assert choice in chupList         
+            assert choice in dList         
         except AssertionError:
             print(f"+{'-'*60}")
             input("| Invalid Choice. Press Enter key to try again...")     
@@ -551,7 +553,7 @@ def update_info(uname, key, iv):
     if choice == '1':
 
         print(f"+{'-'*60}")
-        nmail = input("| Enter New Mail >> ")
+        nmail = input("| Enter New Mail-ID/Username: ")
         
         decryption(userDBFile.replace('uname', uname), key, iv)
 
@@ -577,7 +579,7 @@ def update_info(uname, key, iv):
     elif choice == '2':
 
         print(f"+{'-'*60}")
-        npassword = input("| Enter New Password >> ")
+        npassword = input("| Enter New Password: ")
         
         decryption(userDBFile.replace('uname', uname), key, iv)
 
@@ -598,32 +600,7 @@ def update_info(uname, key, iv):
         print(f"+{'-'*60}")
         print(f'| PASSWORD UPDATE SUCCESSFUL')
         print(f"+{'-'*60}")
-    
-    elif choice == '3':
-
-        print(f"+{'-'*60}")
-        nuname = input("| Enter New Username >> ")
-        
-        decryption(userDBFile.replace('uname', uname), key, iv)
-
-        uConn = sqlite3.connect(userDBFile.replace('uname', uname))
-        uCur = uConn.cursor()
-        try:
-            uCur.execute(updateUsername.replace('uname', uname), (nuname, uid))
-            uConn.commit()
-            uConn.close()
-        except:
-            uConn.close()
-            encryption(userDBFile.replace('uname', uname), key, iv)
-            print(f"+{'-'*60}")
-            input("Unable to Change Username due to invalid/incorrect data. Press Enter to Exit.")
-            sys.exit()
-
-        encryption(userDBFile.replace('uname', uname), key, iv)
-        print(f"+{'-'*60}")
-        print(f'| USERNAME UPDATE SUCCESSFUL')
-        print(f"+{'-'*60}")
-    
+      
     else:
         return None
 
@@ -636,8 +613,8 @@ def existing_user():
     print(f"+{'-'*60}")
  
     
-    uname = input("| UserName >> ")
-    passwd = input("| Password >> ")
+    uname = input("| UserName: ")
+    passwd = input("| Password: ")
     passwd = md5(passwd.encode()).hexdigest()
     
     # Decrypts File
@@ -713,7 +690,6 @@ def existing_user():
 
         elif choice == "3":
             search_by_data(uname, key,iv)
-            input("| Press Enter Key to continue...")     
         
         elif choice == "4":
             update_info(uname, key,iv)
@@ -737,7 +713,7 @@ def new_user():
     print("| Welcome New User")
     while True: 
         print(f"+{'-'*60}")  
-        uname = input("| Username >> ")
+        uname = input("| Username: ")
         if uname.isalpha():
             break
         else:
@@ -746,7 +722,7 @@ def new_user():
     
     # Password is Hashed and Key is generated for Encryption
 
-    passwd = input("| Password >> ")
+    passwd = input("| Password: ")
     passwd = md5(passwd.encode()).hexdigest()
     recovCode = random_recovery_word()
     key, iv = genrate_encryption_key()
