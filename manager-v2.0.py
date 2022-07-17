@@ -45,7 +45,7 @@ logo = '''+---------------------------------------------------------------------
 
 dList = ['1', '2', '99', 'x']
 mainList  = ['1', '2', '3', '4', '5', 'x']
-exList = ['1', '2', '3', '4', '99', 'x']
+exList = ['1', '2', '3', '4', '5', '99', 'x']
     
 # * MASTER TABLE SQL STATEMENTS
 
@@ -76,6 +76,7 @@ insertInfo2User = "INSERT INTO uname(website, mail, password, optdata) VALUES(?,
 searchWebsite = f"select * from uname where website LIKE '%string%';"
 updateUserPassword = "update uname set password = ? where id = ?;"
 updateMail = "update uname set mail = ? where id = ?;"
+deleteID = "DELETE from uname where id = ?;"
 
 # * Check for the Platform
 
@@ -605,6 +606,60 @@ def update_info(uname, key, iv):
         return None
 
 
+def delete_info(uname, key, iv):
+
+    draw()
+    menuMsg =  f'''+{'-'*60}
+| DELETE {uname}'s DATA
++{'-'*60}'''
+    print(menuMsg)
+    input("| Make a note of the ID for which you need to update or modify the information. Press Enter to continue...")
+
+    flag = search_by_data(uname, key, iv)
+    if flag == None:
+        return None
+   
+    draw()
+    menuMsg =  f'''+{'-'*60}
+| DELETE {uname}'s DATA
++{'-'*60}'''
+
+    print(menuMsg)
+    
+    while True:
+        print(f"+{'-'*60}")
+        try:
+            uid = int(input("| Enter ID >> "))
+        except ValueError:
+            print("| Invalid ID")
+        else:
+            break
+    
+    
+    decryption(userDBFile.replace('uname', uname), key, iv)
+
+    uConn = sqlite3.connect(userDBFile.replace('uname', uname))
+    uCur = uConn.cursor()
+    try:
+        uCur.execute(deleteID.replace('uname', uname), [uid])
+        uConn.commit()
+        uConn.close()
+    except:
+        uConn.close()
+        encryption(userDBFile.replace('uname', uname), key, iv)
+        print(f"+{'-'*60}")
+        input("Unable to Change Mail ID due to invalid/incorrect data. Press Enter to Exit.")
+        sys.exit()
+    
+    encryption(userDBFile.replace('uname', uname), key, iv)
+
+    print(f"+{'-'*60}")
+    print(f'| DELETED SUCCESSFUL')
+    print(f"+{'-'*60}")
+
+    return None
+
+
 def existing_user():
 
     draw()
@@ -659,6 +714,7 @@ def existing_user():
 | 2. View All Data
 | 3. Search Data
 | 4. Update Information
+| 5. Delete Information
 | 99. Main Menu
 |
 | x. Exit
@@ -669,7 +725,7 @@ def existing_user():
 
         while True:
             print(f"+{'-'*60}")
-            choice = input("| Choose [ 1 / 2 / 3 / 4 / 99 / x ] >> ")
+            choice = input("| Choose [ 1 / 2 / 3 / 4 / 5 / 99 / x ] >> ")
             try:
                 assert choice in exList         
             except AssertionError:
@@ -694,7 +750,9 @@ def existing_user():
         elif choice == "4":
             update_info(uname, key,iv)
             input("| Press Enter Key to continue...")  
-
+        elif choice == "5":
+            delete_info(uname, key,iv)
+            input("| Press Enter Key to continue...")
         elif choice == "99":
             return None
         elif choice == 'x':
